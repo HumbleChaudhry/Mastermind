@@ -11,7 +11,7 @@ export class GameService {
   public connectionStatus$ = this.connectionStatus.asObservable();
 
   // Initialize socket with a default value to satisfy TypeScript
-  public socket: Socket;
+  public socket: Socket = io(environment.apiUrl, { autoConnect: false });
   private serverAvailable = true;
 
   constructor() {
@@ -25,51 +25,59 @@ export class GameService {
   private checkServerAvailability() {
     this.connectionStatus.next('checking');
 
-    // Create a simple fetch request to check if the server is available
-    fetch(`${environment.apiUrl}/health`, {
+    // Try to connect directly to the root URL instead of the health endpoint
+    // since the health endpoint might not exist
+    fetch(`${environment.apiUrl}`, {
       method: 'GET',
       mode: 'cors',
       cache: 'no-cache',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       redirect: 'follow',
       referrerPolicy: 'no-referrer',
     })
       .then((response) => {
-        if (response.ok) {
-          console.log('Server is available, initializing socket');
-          this.serverAvailable = true;
-          this.initializeSocket();
-        } else {
-          console.error('Server returned error status:', response.status);
-          this.serverAvailable = false;
-          this.connectionStatus.next('server_unavailable');
-        }
+        // If we get any response at all, the server is probably running
+        console.log('Server is available, initializing socket');
+        this.serverAvailable = true;
+        this.initializeSocket();
       })
       .catch((error) => {
-        console.error('Server health check failed:', error);
+        console.error('Server check failed:', error);
         this.serverAvailable = false;
         this.connectionStatus.next('server_unavailable');
 
-        // Initialize socket anyway as a fallback, with limited reconnection attempts
+        // Try socket connection anyway as a last resort
+        console.log('Trying socket connection as fallback');
         this.initializeSocket(true);
       });
   }
 
   private initializeSocket(fallback = false) {
-    // Initialize socket with standard configuration
-    const options = {
-      transports: ['websocket', 'polling'],
-      reconnectionAttempts: fallback ? 2 : 5, // Limit reconnection attempts if server is likely down
-      reconnectionDelay: 1000,
-      timeout: 20000,
-      autoConnect: true,
-      forceNew: true,
-    };
+    try {
+      // Initialize socket with standard configuration
+      const options = {
+        transports: ['polling', 'websocket'], // Try polling first as it's more reliable for initial connection
+        reconnectionAttempts: fallback ? 2 : 5, // Limit reconnection attempts if server is likely down
+        reconnectionDelay: 1000,
+        timeout: 20000,
+        autoConnect: true,
+        forceNew: true,
+      };
 
-    this.socket = io(environment.apiUrl, options);
-    this.setupEventListeners();
+      // Disconnect existing socket if it exists
+      if (this.socket && typeof this.socket.disconnect === 'function') {
+        this.socket.disconnect();
+        this.socket.removeAllListeners();
+      }
+
+      // Create new socket
+      this.socket = io(environment.apiUrl, options);
+      this.setupEventListeners();
+
+      console.log('Socket initialized with options:', options);
+    } catch (error) {
+      console.error('Error initializing socket:', error);
+      this.connectionStatus.next('error');
+    }
   }
 
   private setupEventListeners() {

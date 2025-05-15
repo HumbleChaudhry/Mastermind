@@ -5,8 +5,22 @@
     <p class="connection-message" [ngClass]="connectionStatus">
       {{ getConnectionMessage() }}
     </p>
+    <div *ngIf="connectionStatus === 'server_unavailable'" class="server-info">
+      <p>The game server appears to be offline. This could be because:</p>
+      <ul>
+        <li>The server is temporarily down for maintenance</li>
+        <li>
+          The free hosting service has put the server to sleep due to inactivity
+        </li>
+      </ul>
+      <p>You can try again later or contact the administrator.</p>
+    </div>
     <button
-      *ngIf="connectionStatus === 'error' || connectionStatus === 'failed'"
+      *ngIf="
+        connectionStatus === 'error' ||
+        connectionStatus === 'failed' ||
+        connectionStatus === 'server_unavailable'
+      "
       (click)="retryConnection()"
       class="retry-button"
     >

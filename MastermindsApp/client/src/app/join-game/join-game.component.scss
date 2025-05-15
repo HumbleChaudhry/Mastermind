@@ -23,6 +23,28 @@
   text-align: center;
 }
 
+.server-info {
+  background-color: rgba(255, 255, 255, 0.7);
+  border-radius: 4px;
+  padding: 10px;
+  margin: 10px 0;
+  text-align: left;
+  font-size: 14px;
+
+  p {
+    margin: 5px 0;
+  }
+
+  ul {
+    margin: 5px 0;
+    padding-left: 20px;
+  }
+
+  li {
+    margin-bottom: 3px;
+  }
+}
+
 .connection-message {
   font-weight: bold;
   margin-bottom: 10px;
