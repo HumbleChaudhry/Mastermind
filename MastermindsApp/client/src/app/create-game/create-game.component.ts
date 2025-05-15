@@ -94,12 +94,31 @@ export class CreateGameComponent implements OnInit, OnDestroy {
   }
 
   createRoom() {
-    // Only proceed if we're connected
-    if (this.connectionStatus !== 'connected') {
+    // Check if socket is actually connected
+    if (!this.gameService.socket.connected) {
+      console.log('Socket is disconnected. Attempting to reconnect...');
+      this.connectionStatus = 'connecting';
       $('#error-message-connection').css('visibility', 'visible');
+      this.gameService.reconnect();
+
+      // Set a timeout to retry the operation after reconnection
+      setTimeout(() => {
+        if (this.gameService.socket.connected) {
+          console.log('Socket reconnected. Retrying room creation...');
+          this.actuallyCreateRoom();
+        } else {
+          console.log('Socket still disconnected. Cannot create room.');
+          this.connectionStatus = 'error';
+        }
+      }, 2000);
+
       return;
     }
 
+    this.actuallyCreateRoom();
+  }
+
+  actuallyCreateRoom() {
     this.resetErrorMessage();
 
     this.username = String($('#create-game-nickname').val()).trim();
@@ -108,7 +127,24 @@ export class CreateGameComponent implements OnInit, OnDestroy {
     console.log('Socket connected:', this.gameService.socket.connected);
     console.log('Socket ID:', this.gameService.socket.id);
 
-    this.roomService.onNewRoomRequested(this.username);
+    if (!this.username) {
+      $('#error-message-no-nickname-create').css('visibility', 'visible');
+      $('#create-game-nickname').css('border', '2px solid #cc0000');
+      return;
+    }
+
+    if (this.username.length > 12) {
+      $('#error-message-long-nickname-create').css('visibility', 'visible');
+      $('#create-game-nickname').css('border', '2px solid #cc0000');
+      return;
+    }
+
+    if (this.gameService.socket.connected) {
+      this.roomService.onNewRoomRequested(this.username);
+    } else {
+      console.error('Cannot create room: Socket is not connected');
+      $('#error-message-connection').css('visibility', 'visible');
+    }
   }
 
   resetErrorMessage() {

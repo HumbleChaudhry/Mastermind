@@ -84,12 +84,37 @@ export class RoomService {
 
   onNewRoomRequested(nickname: string) {
     console.log('Emitting room:request-room-creation with nickname:', nickname);
-    this.socket.emit('room:request-room-creation', nickname);
+
+    // Add a timeout to detect if the server doesn't respond
+    const responseTimeout = setTimeout(() => {
+      console.error(
+        'No response from server after room creation request. Server might be down or overloaded.'
+      );
+      // Re-emit the event to try again
+      console.log('Retrying room creation...');
+      this.socket.emit('room:request-room-creation', nickname);
+    }, 5000);
+
+    // Set up a one-time listener for the response
+    this.socket.once('room:joined-created-room', () => {
+      // Clear the timeout when we get a response
+      clearTimeout(responseTimeout);
+    });
+
+    // Also listen for error responses
+    this.socket.once('room:error', (error) => {
+      console.error('Server reported error during room creation:', error);
+      clearTimeout(responseTimeout);
+    });
 
     // Add a one-time event listener to catch any errors
     this.socket.once('error', (error) => {
       console.error('Socket error after room request:', error);
+      clearTimeout(responseTimeout);
     });
+
+    // Emit the event
+    this.socket.emit('room:request-room-creation', nickname);
   }
 
   onRequestToJoinRoom(nickname: string, roomCode: string) {

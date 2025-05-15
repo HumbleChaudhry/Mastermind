@@ -7,15 +7,16 @@ import { BehaviorSubject } from 'rxjs';
   providedIn: 'root',
 })
 export class GameService {
-  private connectionStatus = new BehaviorSubject<string>('connected');
+  private connectionStatus = new BehaviorSubject<string>('connecting');
   public connectionStatus$ = this.connectionStatus.asObservable();
+  private reconnectTimer: any = null;
 
   // Initialize socket with a default value to satisfy TypeScript
   public socket: Socket = io(environment.apiUrl, {
     transports: ['polling', 'websocket'],
-    reconnectionAttempts: 5,
+    reconnectionAttempts: 10,
     reconnectionDelay: 1000,
-    timeout: 20000,
+    timeout: 30000,
     autoConnect: true,
     forceNew: true,
     path: '/socket.io/',
@@ -24,9 +25,27 @@ export class GameService {
   constructor() {
     console.log('GameService created with API URL:', environment.apiUrl);
     this.setupEventListeners();
+
+    // Ensure we're connected
+    this.ensureConnection();
   }
 
-  // No server availability check needed
+  private ensureConnection() {
+    if (!this.socket.connected) {
+      console.log('Socket not connected on initialization, connecting...');
+      this.socket.connect();
+
+      // Set up a periodic check to ensure we stay connected
+      if (!this.reconnectTimer) {
+        this.reconnectTimer = setInterval(() => {
+          if (!this.socket.connected) {
+            console.log('Periodic check: Socket disconnected, reconnecting...');
+            this.reconnect();
+          }
+        }, 10000); // Check every 10 seconds
+      }
+    }
+  }
 
   private setupEventListeners() {
     // Add connection event listeners
@@ -60,6 +79,15 @@ export class GameService {
       this.connectionStatus.next('error');
     });
 
+    this.socket.on('reconnect_attempt', (attemptNumber) => {
+      console.log('Socket reconnection attempt:', attemptNumber);
+    });
+
+    this.socket.on('reconnect_failed', () => {
+      console.error('Socket reconnection failed after all attempts');
+      this.connectionStatus.next('failed');
+    });
+
     // Debug all incoming events
     this.socket.onAny((eventName, ...args) => {
       console.log(`Received event: ${eventName}`, args);
@@ -80,9 +108,9 @@ export class GameService {
       // Create a new socket with fresh settings
       this.socket = io(environment.apiUrl, {
         transports: ['polling', 'websocket'],
-        reconnectionAttempts: 5,
+        reconnectionAttempts: 10,
         reconnectionDelay: 1000,
-        timeout: 20000,
+        timeout: 30000,
         autoConnect: true,
         forceNew: true,
         path: '/socket.io/',
@@ -90,12 +118,37 @@ export class GameService {
 
       this.setupEventListeners();
       this.socket.connect();
+
+      // Return a promise that resolves when connected or rejects after timeout
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Connection timeout'));
+        }, 5000);
+
+        this.socket.once('connect', () => {
+          clearTimeout(timeout);
+          resolve(true);
+        });
+
+        this.socket.once('connect_error', (error) => {
+          clearTimeout(timeout);
+          reject(error);
+        });
+      });
     }
+
+    return Promise.resolve(false);
   }
 
   // Method to test the connection
   public testConnection() {
     console.log('Testing connection by emitting a ping event...');
     this.socket.emit('ping', { timestamp: new Date().toISOString() });
+
+    // Also check if we need to reconnect
+    if (!this.socket.connected) {
+      console.log('Socket not connected during test, reconnecting...');
+      this.reconnect();
+    }
   }
 }
