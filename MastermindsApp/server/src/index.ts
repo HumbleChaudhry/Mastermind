@@ -19,7 +19,7 @@ var express = require("express"),
 // Configure Socket.IO with proper CORS settings
 const io = require("socket.io")(server, {
   cors: {
-    origin: "*", // Allow all origins for now to debug
+    origin: ["https://mastermind-app.onrender.com", "http://localhost:4200"],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization"]
@@ -31,7 +31,13 @@ const io = require("socket.io")(server, {
 
 // Add CORS middleware for Express
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*"); // Allow all origins for debugging
+  const allowedOrigins = ['https://mastermind-app.onrender.com', 'http://localhost:4200'];
+  const origin = req.headers.origin;
+
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+  }
+
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
   res.header("Access-Control-Allow-Credentials", "true");
@@ -88,6 +94,7 @@ app.get('/socket-test', (req: any, res: any) => {
               document.getElementById('status').textContent = 'Connected to Socket.IO with ID: ' + socket.id;
               document.getElementById('status').style.color = 'green';
               document.getElementById('server-url').textContent = serverUrl;
+              document.getElementById('client-info').textContent = 'Client app should be at: https://mastermind-app.onrender.com';
             });
 
             socket.on('connect_error', (err) => {
@@ -102,7 +109,16 @@ app.get('/socket-test', (req: any, res: any) => {
       <body>
         <h1>Socket.IO Test</h1>
         <p>Server URL: <span id="server-url">Detecting...</span></p>
+        <p id="client-info">Client app should be at: https://mastermind-app.onrender.com</p>
         <p id="status">Connecting to Socket.IO...</p>
+        <div>
+          <h2>CORS Configuration</h2>
+          <p>The server is configured to accept connections from:</p>
+          <ul>
+            <li>https://mastermind-app.onrender.com</li>
+            <li>http://localhost:4200</li>
+          </ul>
+        </div>
       </body>
     </html>
   `);

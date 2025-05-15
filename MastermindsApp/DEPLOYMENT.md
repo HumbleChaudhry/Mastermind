@@ -43,7 +43,7 @@ This guide will help you deploy your Mastermind game using free hosting options.
    - Publish Directory: `dist/masterminds-app`
    - Environment Variables:
      - Make sure to update the `environment.prod.ts` file with your actual server URL (e.g., `https://mastermind-server.onrender.com`) before deploying
-     - If you're using a different domain, also update the CORS settings in `server/src/index.ts`
+     - If you're using a different domain than `https://mastermind-app.onrender.com`, also update the CORS settings in `server/src/index.ts`
 
 ## Option 2: Render + Render PostgreSQL (90-day trial)
 
