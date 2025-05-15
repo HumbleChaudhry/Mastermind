@@ -28,6 +28,9 @@ export class CreateGameComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    // Test the connection
+    this.gameService.testConnection();
+
     // Subscribe to connection status updates
     this.connectionSubscription = this.gameService.connectionStatus$.subscribe(
       (status) => {
@@ -100,6 +103,11 @@ export class CreateGameComponent implements OnInit, OnDestroy {
     this.resetErrorMessage();
 
     this.username = String($('#create-game-nickname').val()).trim();
+    console.log('Creating room with username:', this.username);
+    console.log('Connection status:', this.connectionStatus);
+    console.log('Socket connected:', this.gameService.socket.connected);
+    console.log('Socket ID:', this.gameService.socket.id);
+
     this.roomService.onNewRoomRequested(this.username);
   }
 

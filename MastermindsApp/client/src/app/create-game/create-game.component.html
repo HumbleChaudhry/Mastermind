@@ -1,7 +1,19 @@
 <div class="login">
   <h1>Create a Game</h1>
   <hr />
-  <!-- Connection status messages removed as requested -->
+  <div *ngIf="connectionStatus !== 'connected'" class="connection-status">
+    <p>{{ getConnectionMessage() }}</p>
+    <button
+      *ngIf="
+        connectionStatus === 'error' ||
+        connectionStatus === 'disconnected' ||
+        connectionStatus === 'timeout'
+      "
+      (click)="retryConnection()"
+    >
+      Retry Connection
+    </button>
+  </div>
   <h2>Nickname</h2>
   <input
     type="text"
@@ -14,6 +26,8 @@
   <p class="error-message" id="error-message-long-nickname-create">
     The nickname cannot exceed 12 characters.
   </p>
-  <!-- Error message removed as requested -->
+  <p class="error-message" id="error-message-connection">
+    Connection to game server failed. Please retry.
+  </p>
   <button (click)="createRoom()">Create</button>
 </div>

@@ -83,7 +83,13 @@ export class RoomService {
   }
 
   onNewRoomRequested(nickname: string) {
+    console.log('Emitting room:request-room-creation with nickname:', nickname);
     this.socket.emit('room:request-room-creation', nickname);
+
+    // Add a one-time event listener to catch any errors
+    this.socket.once('error', (error) => {
+      console.error('Socket error after room request:', error);
+    });
   }
 
   onRequestToJoinRoom(nickname: string, roomCode: string) {
@@ -110,8 +116,13 @@ export class RoomService {
   }
 
   onJoinedCreatedRoom() {
+    console.log('Setting up room:joined-created-room listener');
     return new Observable<string>((observer) => {
       this.socket.on('room:joined-created-room', (roomCode) => {
+        console.log(
+          'Received room:joined-created-room event with roomCode:',
+          roomCode
+        );
         this.roomcode = roomCode;
         this.socket.emit('room:check-mastermind-taken');
         this.socket.emit('message:send-messages');

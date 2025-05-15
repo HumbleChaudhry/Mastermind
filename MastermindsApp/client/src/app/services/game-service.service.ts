@@ -13,7 +13,7 @@ export class GameService {
   // Initialize socket with a default value to satisfy TypeScript
   public socket: Socket = io(environment.apiUrl, {
     transports: ['polling', 'websocket'],
-    reconnectionAttempts: 3,
+    reconnectionAttempts: 5,
     reconnectionDelay: 1000,
     timeout: 20000,
     autoConnect: true,
@@ -32,20 +32,17 @@ export class GameService {
     // Add connection event listeners
     this.socket.on('connect', () => {
       console.log('Socket connected successfully with ID:', this.socket.id);
-      // Always report as connected to allow game creation
       this.connectionStatus.next('connected');
     });
 
     this.socket.on('connect_error', (error) => {
       console.error('Socket connection error:', error);
-      // Still report as connected to allow game creation
-      this.connectionStatus.next('connected');
+      this.connectionStatus.next('error');
     });
 
     this.socket.on('disconnect', (reason) => {
       console.log('Socket disconnected:', reason);
-      // Still report as connected to allow game creation
-      this.connectionStatus.next('connected');
+      this.connectionStatus.next('disconnected');
 
       if (reason === 'io server disconnect') {
         // The server has forcefully disconnected the socket
@@ -60,13 +57,18 @@ export class GameService {
 
     this.socket.on('reconnect_error', (error) => {
       console.error('Socket reconnection error:', error);
-      // Still report as connected to allow game creation
-      this.connectionStatus.next('connected');
+      this.connectionStatus.next('error');
+    });
+
+    // Debug all incoming events
+    this.socket.onAny((eventName, ...args) => {
+      console.log(`Received event: ${eventName}`, args);
     });
   }
 
-  // Method to manually reconnect - simplified
+  // Method to manually reconnect
   public reconnect() {
+    console.log('Attempting to reconnect socket...');
     if (this.socket) {
       if (this.socket.connected) {
         this.socket.disconnect();
@@ -75,9 +77,25 @@ export class GameService {
       // Disconnect and clean up existing socket
       this.socket.removeAllListeners();
 
-      // Just reconnect
-      this.socket.connect();
+      // Create a new socket with fresh settings
+      this.socket = io(environment.apiUrl, {
+        transports: ['polling', 'websocket'],
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        timeout: 20000,
+        autoConnect: true,
+        forceNew: true,
+        path: '/socket.io/',
+      });
+
       this.setupEventListeners();
+      this.socket.connect();
     }
+  }
+
+  // Method to test the connection
+  public testConnection() {
+    console.log('Testing connection by emitting a ping event...');
+    this.socket.emit('ping', { timestamp: new Date().toISOString() });
   }
 }
