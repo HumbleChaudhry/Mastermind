@@ -10,7 +10,11 @@ export class GameService {
   private connectionStatus = new BehaviorSubject<string>('disconnected');
   public connectionStatus$ = this.connectionStatus.asObservable();
 
-  public socket: Socket;
+  // Initialize socket with a default value to satisfy TypeScript
+  public socket: Socket = io(environment.apiUrl, {
+    autoConnect: false, // Don't connect immediately, we'll do it in initializeSocket
+  });
+
   private isConnecting = false;
   private connectionAttempts = 0;
   private maxConnectionAttempts = 3;
