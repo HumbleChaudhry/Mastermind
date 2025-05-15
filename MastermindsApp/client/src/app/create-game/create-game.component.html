@@ -1,32 +1,7 @@
 <div class="login">
   <h1>Create a Game</h1>
   <hr />
-  <div *ngIf="connectionStatus !== 'connected'" class="connection-status">
-    <p class="connection-message" [ngClass]="connectionStatus">
-      {{ getConnectionMessage() }}
-    </p>
-    <div *ngIf="connectionStatus === 'server_unavailable'" class="server-info">
-      <p>The game server appears to be offline. This could be because:</p>
-      <ul>
-        <li>The server is temporarily down for maintenance</li>
-        <li>
-          The free hosting service has put the server to sleep due to inactivity
-        </li>
-      </ul>
-      <p>You can try again later or contact the administrator.</p>
-    </div>
-    <button
-      *ngIf="
-        connectionStatus === 'error' ||
-        connectionStatus === 'failed' ||
-        connectionStatus === 'server_unavailable'
-      "
-      (click)="retryConnection()"
-      class="retry-button"
-    >
-      Retry Connection
-    </button>
-  </div>
+  <!-- Connection status messages removed as requested -->
   <h2>Nickname</h2>
   <input
     type="text"
@@ -39,10 +14,6 @@
   <p class="error-message" id="error-message-long-nickname-create">
     The nickname cannot exceed 12 characters.
   </p>
-  <p class="error-message" id="error-message-connection">
-    Unable to connect to the game server. Please try again later.
-  </p>
-  <button (click)="createRoom()" [disabled]="connectionStatus !== 'connected'">
-    Create
-  </button>
+  <!-- Error message removed as requested -->
+  <button (click)="createRoom()">Create</button>
 </div>

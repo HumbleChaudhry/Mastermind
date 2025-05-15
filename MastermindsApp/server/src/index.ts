@@ -11,13 +11,18 @@ try {
 
 const PORT = process.env.PORT || 8080;
 
-var express = require('express'),
-  app = express(),
-  server = require('http').createServer(app),
-  path = require('path');
+// Import required modules properly
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const path = require('path');
 
-// Configure Socket.IO with proper CORS settings
-const io = require('socket.io')(server, {
+// Create Express app and HTTP server
+const app = express();
+const server = http.createServer(app);
+
+// Configure Socket.IO with proper settings
+const io = new Server(server, {
   cors: {
     origin: '*', // Allow all origins for development/debugging
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -67,21 +72,13 @@ app.get('/', (req: any, res: any) => {
 app.get('/health', (req: any, res: any) => {
   res.status(200).json({
     status: 'ok',
-    message: 'Server is running',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    socketio: {
-      enabled: true,
-      transports: ['websocket', 'polling'],
-    },
+    uptime: process.uptime(),
   });
 });
 
-// Add Socket.IO test endpoint
+// Add Socket.IO test page
 app.get('/socket-test', (req: any, res: any) => {
-  const host = req.headers.host || 'localhost:8080';
-  const protocol = req.secure ? 'https' : 'http';
-
   res.send(`
     <!DOCTYPE html>
     <html>
@@ -90,44 +87,30 @@ app.get('/socket-test', (req: any, res: any) => {
         <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
         <script>
           document.addEventListener('DOMContentLoaded', () => {
-            // Use the current server URL
-            const serverUrl = '${protocol}://${host}';
-            console.log('Connecting to Socket.IO server at:', serverUrl);
-
-            const socket = io(serverUrl, {
-              transports: ['websocket', 'polling'],
-              reconnectionAttempts: 5
+            const socket = io({
+              path: '/socket.io/'
             });
 
             socket.on('connect', () => {
-              document.getElementById('status').textContent = 'Connected to Socket.IO with ID: ' + socket.id;
+              document.getElementById('status').textContent = 'Connected: ' + socket.id;
               document.getElementById('status').style.color = 'green';
-              document.getElementById('server-url').textContent = serverUrl;
-              document.getElementById('client-info').textContent = 'Client app should be at: https://mastermind-app.onrender.com';
             });
 
             socket.on('connect_error', (err) => {
-              document.getElementById('status').textContent = 'Error connecting to Socket.IO: ' + err.message;
+              document.getElementById('status').textContent = 'Error: ' + err;
               document.getElementById('status').style.color = 'red';
-              document.getElementById('server-url').textContent = serverUrl;
-              console.error('Connection error:', err);
+            });
+
+            socket.on('disconnect', () => {
+              document.getElementById('status').textContent = 'Disconnected';
+              document.getElementById('status').style.color = 'red';
             });
           });
         </script>
       </head>
       <body>
         <h1>Socket.IO Test</h1>
-        <p>Server URL: <span id="server-url">Detecting...</span></p>
-        <p id="client-info">Client app should be at: https://mastermind-app.onrender.com</p>
-        <p id="status">Connecting to Socket.IO...</p>
-        <div>
-          <h2>CORS Configuration</h2>
-          <p>The server is configured to accept connections from:</p>
-          <ul>
-            <li>https://mastermind-app.onrender.com</li>
-            <li>http://localhost:4200</li>
-          </ul>
-        </div>
+        <p>Status: <span id="status">Connecting...</span></p>
       </body>
     </html>
   `);
