@@ -11,31 +11,64 @@ export class GameService {
   public connectionStatus$ = this.connectionStatus.asObservable();
 
   // Initialize socket with a default value to satisfy TypeScript
-  public socket: Socket = io(environment.apiUrl, {
-    autoConnect: false, // Don't connect immediately, we'll do it in initializeSocket
-  });
-
-  private isConnecting = false;
-  private connectionAttempts = 0;
-  private maxConnectionAttempts = 3;
+  public socket: Socket;
+  private serverAvailable = true;
 
   constructor() {
     console.log('GameService created with API URL:', environment.apiUrl);
-    this.initializeSocket();
+    this.checkServerAvailability();
   }
 
-  private initializeSocket() {
-    // Initialize socket with improved configuration
-    this.socket = io(environment.apiUrl, {
-      transports: ['polling', 'websocket'], // Try polling first, then websocket
-      reconnectionAttempts: 5,
+  /**
+   * Check if the server is available before attempting to connect
+   */
+  private checkServerAvailability() {
+    this.connectionStatus.next('checking');
+
+    // Create a simple fetch request to check if the server is available
+    fetch(`${environment.apiUrl}/health`, {
+      method: 'GET',
+      mode: 'cors',
+      cache: 'no-cache',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      redirect: 'follow',
+      referrerPolicy: 'no-referrer',
+    })
+      .then((response) => {
+        if (response.ok) {
+          console.log('Server is available, initializing socket');
+          this.serverAvailable = true;
+          this.initializeSocket();
+        } else {
+          console.error('Server returned error status:', response.status);
+          this.serverAvailable = false;
+          this.connectionStatus.next('server_unavailable');
+        }
+      })
+      .catch((error) => {
+        console.error('Server health check failed:', error);
+        this.serverAvailable = false;
+        this.connectionStatus.next('server_unavailable');
+
+        // Initialize socket anyway as a fallback, with limited reconnection attempts
+        this.initializeSocket(true);
+      });
+  }
+
+  private initializeSocket(fallback = false) {
+    // Initialize socket with standard configuration
+    const options = {
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: fallback ? 2 : 5, // Limit reconnection attempts if server is likely down
       reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      timeout: 30000, // Increased timeout
+      timeout: 20000,
       autoConnect: true,
       forceNew: true,
-    });
+    };
 
+    this.socket = io(environment.apiUrl, options);
     this.setupEventListeners();
   }
 
@@ -44,20 +77,12 @@ export class GameService {
     this.socket.on('connect', () => {
       console.log('Socket connected successfully with ID:', this.socket.id);
       this.connectionStatus.next('connected');
-      this.connectionAttempts = 0;
+      this.serverAvailable = true;
     });
 
     this.socket.on('connect_error', (error) => {
       console.error('Socket connection error:', error);
       this.connectionStatus.next('error');
-
-      // If we've tried too many times, try a different approach
-      if (
-        ++this.connectionAttempts >= this.maxConnectionAttempts &&
-        !this.isConnecting
-      ) {
-        this.tryAlternativeConnection();
-      }
     });
 
     this.socket.on('disconnect', (reason) => {
@@ -88,44 +113,22 @@ export class GameService {
     this.socket.on('reconnect_failed', () => {
       console.error('Socket reconnection failed after all attempts');
       this.connectionStatus.next('failed');
-
-      // Try alternative connection method if all reconnection attempts fail
-      if (!this.isConnecting) {
-        this.tryAlternativeConnection();
-      }
     });
   }
 
-  private tryAlternativeConnection() {
-    this.isConnecting = true;
-    console.log('Trying alternative connection method...');
-
-    // Disconnect current socket
-    if (this.socket.connected) {
-      this.socket.disconnect();
-    }
-
-    // Try with different transport options
-    this.socket = io(environment.apiUrl, {
-      transports: ['polling'], // Try only polling as a fallback
-      reconnectionAttempts: 3,
-      reconnectionDelay: 2000,
-      timeout: 40000, // Even longer timeout
-      autoConnect: true,
-      forceNew: true,
-    });
-
-    this.setupEventListeners();
-    this.isConnecting = false;
-  }
-
-  // Method to manually reconnect
+  // Method to manually reconnect - with server check
   public reconnect() {
-    if (this.socket.connected) {
-      this.socket.disconnect();
+    if (this.socket) {
+      if (this.socket.connected) {
+        this.socket.disconnect();
+      }
+
+      // Disconnect and clean up existing socket
+      this.socket.removeAllListeners();
+      this.socket.close();
     }
 
-    this.connectionAttempts = 0;
-    this.initializeSocket();
+    // Check server availability again before reconnecting
+    this.checkServerAvailability();
   }
 }

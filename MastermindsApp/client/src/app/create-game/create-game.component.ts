@@ -118,6 +118,8 @@ export class CreateGameComponent implements OnInit, OnDestroy {
 
   getConnectionMessage(): string {
     switch (this.connectionStatus) {
+      case 'checking':
+        return 'Checking server availability...';
       case 'connecting':
         return 'Connecting to game server...';
       case 'error':
@@ -128,6 +130,8 @@ export class CreateGameComponent implements OnInit, OnDestroy {
         return 'Failed to connect to game server.';
       case 'timeout':
         return 'Connection to game server timed out.';
+      case 'server_unavailable':
+        return 'Game server is currently unavailable. Please try again later.';
       default:
         return '';
     }

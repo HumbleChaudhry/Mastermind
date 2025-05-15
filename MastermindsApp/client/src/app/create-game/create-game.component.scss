@@ -22,6 +22,7 @@
   font-weight: bold;
   margin-bottom: 10px;
 
+  &.checking,
   &.connecting {
     color: #f39c12; // Orange
   }
@@ -33,7 +34,8 @@
   &.error,
   &.failed,
   &.timeout,
-  &.disconnected {
+  &.disconnected,
+  &.server_unavailable {
     color: $error-message;
   }
 }
