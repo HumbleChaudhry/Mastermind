@@ -1,4 +1,4 @@
 export const environment = {
   production: true,
-  apiUrl: 'https://your-render-app-name.onrender.com'
+  apiUrl: 'https://mastermind-server.onrender.com'
 };
