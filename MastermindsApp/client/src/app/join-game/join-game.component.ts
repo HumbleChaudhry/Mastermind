@@ -1,8 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
 import { RoomService } from '../services/room.service';
 import { GameStateService } from '../services/game-state.service';
+import { GameService } from '../services/game-service.service';
 import { Clue, Role, Team, Message } from '../interfaces/GameLogicInterfaces';
+import { Subscription } from 'rxjs';
 
 import * as $ from 'jquery';
 
@@ -11,17 +13,48 @@ import * as $ from 'jquery';
   templateUrl: './join-game.component.html',
   styleUrls: ['./join-game.component.scss'],
 })
-export class JoinGameComponent implements OnInit {
+export class JoinGameComponent implements OnInit, OnDestroy {
   username: string;
+  connectionStatus: string = 'connecting';
+  private connectionSubscription: Subscription | null = null;
+  private connectionTimeout: any;
+
   constructor(
     private router: Router,
     private roomService: RoomService,
-    private gameStateService: GameStateService
+    private gameStateService: GameStateService,
+    private gameService: GameService
   ) {
     this.username = '';
   }
 
   ngOnInit(): void {
+    // Subscribe to connection status updates
+    this.connectionSubscription = this.gameService.connectionStatus$.subscribe(
+      (status) => {
+        this.connectionStatus = status;
+
+        if (status === 'error' || status === 'failed') {
+          $('#error-message-connection-join').css('visibility', 'visible');
+        } else {
+          $('#error-message-connection-join').css('visibility', 'hidden');
+        }
+
+        // Set a timeout to show an error if connecting takes too long
+        if (status === 'connecting') {
+          this.clearConnectionTimeout();
+          this.connectionTimeout = setTimeout(() => {
+            if (this.connectionStatus === 'connecting') {
+              this.connectionStatus = 'timeout';
+              $('#error-message-connection-join').css('visibility', 'visible');
+            }
+          }, 10000); // 10 seconds timeout
+        } else {
+          this.clearConnectionTimeout();
+        }
+      }
+    );
+
     this.roomService.onJoinedRoom().subscribe((roomCode: string) => {
       this.router.navigate(['/game/' + roomCode]);
       this.gameStateService.setUsername(this.username);
@@ -64,7 +97,28 @@ export class JoinGameComponent implements OnInit {
     });
   }
 
+  ngOnDestroy(): void {
+    // Clean up subscriptions
+    if (this.connectionSubscription) {
+      this.connectionSubscription.unsubscribe();
+    }
+    this.clearConnectionTimeout();
+  }
+
+  private clearConnectionTimeout(): void {
+    if (this.connectionTimeout) {
+      clearTimeout(this.connectionTimeout);
+      this.connectionTimeout = null;
+    }
+  }
+
   joinRoom() {
+    // Only proceed if we're connected
+    if (this.connectionStatus !== 'connected') {
+      $('#error-message-connection-join').css('visibility', 'visible');
+      return;
+    }
+
     this.resetErrorMessages();
 
     this.username = String($('#join-game-nickname').val()).trim();
@@ -81,9 +135,33 @@ export class JoinGameComponent implements OnInit {
     $('#error-message-long-nickname-join').hide();
     $('#error-message-room-code').css('visibility', 'hidden');
     $('#error-message-max-capacity').css('visibility', 'hidden');
+    $('#error-message-connection-join').css('visibility', 'hidden');
     $('#error-message-room-code').show();
     $('#error-message-max-capacity').hide();
     $('#join-game-nickname').css('border', '0px');
     $('#room-code').css('border', '0px');
+  }
+
+  retryConnection() {
+    this.connectionStatus = 'connecting';
+    $('#error-message-connection-join').css('visibility', 'hidden');
+    this.gameService.reconnect();
+  }
+
+  getConnectionMessage(): string {
+    switch (this.connectionStatus) {
+      case 'connecting':
+        return 'Connecting to game server...';
+      case 'error':
+        return 'Error connecting to game server.';
+      case 'disconnected':
+        return 'Disconnected from game server.';
+      case 'failed':
+        return 'Failed to connect to game server.';
+      case 'timeout':
+        return 'Connection to game server timed out.';
+      default:
+        return '';
+    }
   }
 }

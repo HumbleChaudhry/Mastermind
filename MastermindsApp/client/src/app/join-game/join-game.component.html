@@ -1,6 +1,18 @@
 <div class="login">
   <h1>Join a Game</h1>
   <hr />
+  <div *ngIf="connectionStatus !== 'connected'" class="connection-status">
+    <p class="connection-message" [ngClass]="connectionStatus">
+      {{ getConnectionMessage() }}
+    </p>
+    <button
+      *ngIf="connectionStatus === 'error' || connectionStatus === 'failed'"
+      (click)="retryConnection()"
+      class="retry-button"
+    >
+      Retry Connection
+    </button>
+  </div>
   <h2>Nickname</h2>
   <input type="text" id="join-game-nickname" (keydown)="resetErrorMessages()" />
   <p class="error-message" id="error-message-nickname">
@@ -20,5 +32,10 @@
   <p class="error-message" id="error-message-max-capacity">
     Max capacity reached.
   </p>
-  <button (click)="joinRoom()">Join</button>
+  <p class="error-message" id="error-message-connection-join">
+    Unable to connect to the game server. Please try again later.
+  </p>
+  <button (click)="joinRoom()" [disabled]="connectionStatus !== 'connected'">
+    Join
+  </button>
 </div>
