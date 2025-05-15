@@ -49,12 +49,24 @@ const supabaseService = SupabaseService.getInstance();
 supabaseService.initialize();
 
 // Add health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok', message: 'Server is running' });
+app.get('/health', (req: any, res: any) => {
+  res.status(200).json({
+    status: 'ok',
+    message: 'Server is running',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    socketio: {
+      enabled: true,
+      transports: ['websocket', 'polling']
+    }
+  });
 });
 
 // Add Socket.IO test endpoint
-app.get('/socket-test', (req, res) => {
+app.get('/socket-test', (req: any, res: any) => {
+  const host = req.headers.host || 'localhost:8080';
+  const protocol = req.secure ? 'https' : 'http';
+
   res.send(`
     <!DOCTYPE html>
     <html>
@@ -63,20 +75,33 @@ app.get('/socket-test', (req, res) => {
         <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
         <script>
           document.addEventListener('DOMContentLoaded', () => {
-            const socket = io();
-            socket.on('connect', () => {
-              document.getElementById('status').textContent = 'Connected to Socket.IO';
-              document.getElementById('status').style.color = 'green';
+            // Use the current server URL
+            const serverUrl = '${protocol}://${host}';
+            console.log('Connecting to Socket.IO server at:', serverUrl);
+
+            const socket = io(serverUrl, {
+              transports: ['websocket', 'polling'],
+              reconnectionAttempts: 5
             });
+
+            socket.on('connect', () => {
+              document.getElementById('status').textContent = 'Connected to Socket.IO with ID: ' + socket.id;
+              document.getElementById('status').style.color = 'green';
+              document.getElementById('server-url').textContent = serverUrl;
+            });
+
             socket.on('connect_error', (err) => {
               document.getElementById('status').textContent = 'Error connecting to Socket.IO: ' + err.message;
               document.getElementById('status').style.color = 'red';
+              document.getElementById('server-url').textContent = serverUrl;
+              console.error('Connection error:', err);
             });
           });
         </script>
       </head>
       <body>
         <h1>Socket.IO Test</h1>
+        <p>Server URL: <span id="server-url">Detecting...</span></p>
         <p id="status">Connecting to Socket.IO...</p>
       </body>
     </html>
@@ -88,8 +113,9 @@ try {
   const clientPath = path.join(__dirname, '../../client/dist/masterminds-app');
   app.use(express.static(clientPath));
 
-  // For any other routes, redirect to index.html (Angular routing)
-  app.get('*', (req, res) => {
+  // Add a catch-all route AFTER our API routes
+  // This should be the LAST route defined
+  app.get('/app/*', (req: any, res: any) => {
     res.sendFile(path.join(clientPath, 'index.html'));
   });
 
