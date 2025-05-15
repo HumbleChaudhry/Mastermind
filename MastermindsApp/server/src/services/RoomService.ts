@@ -14,12 +14,39 @@ export class RoomService {
 
   constructor(private wordService: WordService) {
     var gameRetrieverService = new GameRetrieverService();
+
+    // Initialize with synchronous method for backward compatibility
     this.roomGameStates = gameRetrieverService.ReadPreviousGames();
 
     Object.keys(this.roomGameStates).forEach((roomcode) => {
       this.rooms[roomcode] = [];
       this.roomCodes.push(roomcode);
     });
+
+    // Try to load from Supabase asynchronously
+    this.loadGamesFromSupabase(gameRetrieverService);
+  }
+
+  private async loadGamesFromSupabase(gameRetrieverService: GameRetrieverService) {
+    try {
+      const supabaseGames = await gameRetrieverService.ReadPreviousGamesAsync();
+
+      if (supabaseGames && Object.keys(supabaseGames).length > 0) {
+        console.log('Successfully loaded games from Supabase');
+        this.roomGameStates = supabaseGames;
+
+        // Update room codes and rooms
+        this.roomCodes = [];
+        this.rooms = {};
+
+        Object.keys(this.roomGameStates).forEach((roomcode) => {
+          this.rooms[roomcode] = [];
+          this.roomCodes.push(roomcode);
+        });
+      }
+    } catch (error) {
+      console.error('Error loading games from Supabase:', error);
+    }
   }
 
   GenerateRoomCode(): string {
