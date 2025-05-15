@@ -1,6 +1,6 @@
-import { RoomService } from "./services/RoomService";
-import { WordService } from "./services/WordService";
-import { SupabaseService } from "./services/SupabaseService";
+import { RoomService } from './services/RoomService';
+import { WordService } from './services/WordService';
+import { SupabaseService } from './services/SupabaseService';
 
 // Load environment variables if dotenv is available
 try {
@@ -11,36 +11,36 @@ try {
 
 const PORT = process.env.PORT || 8080;
 
-var express = require("express"),
+var express = require('express'),
   app = express(),
-  server = require("http").createServer(app),
-  path = require("path");
+  server = require('http').createServer(app),
+  path = require('path');
 
 // Configure Socket.IO with proper CORS settings
-const io = require("socket.io")(server, {
+const io = require('socket.io')(server, {
   cors: {
-    origin: ["https://mastermind-app.onrender.com", "http://localhost:4200"],
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    origin: '*', // Allow all origins for development/debugging
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
-    allowedHeaders: ["Content-Type", "Authorization"]
+    allowedHeaders: ['Content-Type', 'Authorization'],
   },
   transports: ['websocket', 'polling'], // Explicitly define transports
   pingTimeout: 60000, // Increase ping timeout
-  pingInterval: 25000 // Increase ping interval
+  pingInterval: 25000, // Increase ping interval
+  path: '/socket.io/', // Explicitly set the path
 });
 
 // Add CORS middleware for Express
 app.use((req, res, next) => {
-  const allowedOrigins = ['https://mastermind-app.onrender.com', 'http://localhost:4200'];
-  const origin = req.headers.origin;
+  // Allow all origins for development/debugging
+  res.header('Access-Control-Allow-Origin', '*');
 
-  if (origin && allowedOrigins.includes(origin)) {
-    res.header("Access-Control-Allow-Origin", origin);
-  }
-
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
-  res.header("Access-Control-Allow-Credentials", "true");
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header(
+    'Access-Control-Allow-Headers',
+    'Origin, X-Requested-With, Content-Type, Accept, Authorization'
+  );
+  res.header('Access-Control-Allow-Credentials', 'true');
 
   // Handle preflight requests
   if (req.method === 'OPTIONS') {
@@ -54,6 +54,15 @@ app.use((req, res, next) => {
 const supabaseService = SupabaseService.getInstance();
 supabaseService.initialize();
 
+// Add root endpoint
+app.get('/', (req: any, res: any) => {
+  res.status(200).json({
+    message: 'Mastermind Express Server',
+    status: true,
+    socketio_enabled: true,
+  });
+});
+
 // Add health check endpoint
 app.get('/health', (req: any, res: any) => {
   res.status(200).json({
@@ -63,8 +72,8 @@ app.get('/health', (req: any, res: any) => {
     environment: process.env.NODE_ENV || 'development',
     socketio: {
       enabled: true,
-      transports: ['websocket', 'polling']
-    }
+      transports: ['websocket', 'polling'],
+    },
   });
 });
 
@@ -141,33 +150,40 @@ try {
 }
 
 server.listen(PORT);
-console.log("Server Running on Port ", PORT);
+console.log('Server Running on Port ', PORT);
 
-const registerRoomHandler = require("./services/EventHandlers/RoomHandler");
+const registerRoomHandler = require('./services/EventHandlers/RoomHandler');
 
 var wordService = new WordService();
 var roomService = new RoomService(wordService);
 
 // Socket.IO connection handling with detailed logging
-io.on("connection", (socket) => {
+io.on('connection', (socket) => {
   console.log(`[${new Date().toISOString()}] User connected: ${socket.id}`);
   console.log(`Client transport: ${socket.conn.transport.name}`);
   console.log(`Client IP: ${socket.handshake.address}`);
   console.log(`Client headers: ${JSON.stringify(socket.handshake.headers)}`);
 
   // Emit login redirect
-  io.to(socket.id).emit("login:redirect");
+  io.to(socket.id).emit('login:redirect');
 
   // Register room handler
   registerRoomHandler(io, socket, roomService);
 
   // Handle disconnection
-  socket.on("disconnect", (reason) => {
-    console.log(`[${new Date().toISOString()}] User disconnected: ${socket.id}, Reason: ${reason}`);
+  socket.on('disconnect', (reason) => {
+    console.log(
+      `[${new Date().toISOString()}] User disconnected: ${
+        socket.id
+      }, Reason: ${reason}`
+    );
   });
 
   // Handle errors
-  socket.on("error", (error) => {
-    console.error(`[${new Date().toISOString()}] Socket error for ${socket.id}:`, error);
+  socket.on('error', (error) => {
+    console.error(
+      `[${new Date().toISOString()}] Socket error for ${socket.id}:`,
+      error
+    );
   });
 });

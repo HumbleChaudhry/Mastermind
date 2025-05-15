@@ -61,6 +61,7 @@ export class GameService {
         timeout: 20000,
         autoConnect: true,
         forceNew: true,
+        path: '/socket.io/', // Explicitly set the path to match server
       };
 
       // Disconnect existing socket if it exists
